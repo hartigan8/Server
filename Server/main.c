@@ -22,7 +22,8 @@ int main(int argc, char *argv[])
     struct sockaddr_in server , client;
     char* request;
     char* response;
-     
+    request = calloc(1, BUFF_SIZE);
+    response = calloc(1, 100);
     // Create socket
     socket_desc = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_desc == -1)
@@ -49,7 +50,7 @@ int main(int argc, char *argv[])
     // Accept and incoming connection
     puts("Waiting for incoming connections...");
     
-   
+    
     c = sizeof(struct sockaddr_in);
     while( new_socket =
            accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c) )
@@ -57,27 +58,23 @@ int main(int argc, char *argv[])
         puts("Connected.");
         while (1)
         {   
-            request = calloc(1, BUFF_SIZE);
-            response = calloc(1, 50);
+            
             int requestLength = recv(new_socket, request, BUFF_SIZE, 0);
             if(requestLength < 0){
                 return 1;
             }
+            
             else if (requestLength > 0)
             {   
-                
-                request[requestLength - 2] = '\0';
-
                 time_t rawtime;
                 struct tm* timeinfo;
 
+                
                 time(&rawtime);
                 timeinfo = localtime(&rawtime);
-                char time[64];
-                char date[64];
-                strftime(time, 64, "%T", timeinfo);
-                strftime(date, 64, "%x", timeinfo);
-
+                request[requestLength - 2] = '\0';
+                
+                
                 if(strcmp(request, CLOSE) == 0){
                     printf("Close signal received.");
                     response = "GOOD BYE\n";
@@ -88,9 +85,7 @@ int main(int argc, char *argv[])
                     return 0;
                 }
                 else if(strcmp(request, DAY) == 0){
-                    strftime(response, sizeof(response), "%A", timeinfo);
-                    response[strlen(response)] = '\n';
-                    response[strlen(response) + 1] = '\0';
+                    strftime(response, sizeof(response), "%A\n", timeinfo);
                     send(new_socket, response, strlen(response), 0);
                 }
                 else if(strcmp(request, TIME_ZONE) == 0){
@@ -108,49 +103,31 @@ int main(int argc, char *argv[])
                 }
                 
                 else if(strcmp(request, TIME_DATE) == 0){
-                    /*
-                    strftime(response, sizeof(response), "%T%x", timeinfo);
+                    
+                    strftime(response, sizeof(response), "%H:%M:%S, %m.%d.%Y\n", timeinfo);
                     response[strlen(response)] = '\n';
                     response[strlen(response) + 1] = '\0';
                     send(new_socket, response, strlen(response), 0);
-                    */
-                    strcat(time, ", ");
-                    strcat(date, "\n");
-                    strcat(time, date);
-                    send(new_socket, time, strlen(time), 0);
+                    
+                }
+                /*
+                else if(strcmp(request, TIME)){
+                    strftime(response, sizeof(response), "%H:%M:%S\n", timeinfo);
+                    send(new_socket, response, strlen(response), 0);
                 }
                 
-                else if(strcmp(request, TIME)){
-                    /*
-                    strftime(response, sizeof(response), "%T", timeinfo);
-                    response[strlen(response)] = '\n';
-                    response[strlen(response) + 1] = '\0';
-                    send(new_socket, response, strlen(response), 0);
-                    */
-                    strcat(time, "\n");
-                    send(new_socket, time, strlen(time), 0);
-                }
                 
                 else if(strcmp(request, DATE)){
-                    /*
-                    strftime(response, sizeof(response), "%x", timeinfo);
-                    response[strlen(response)] = '\n';
-                    response[strlen(response) + 1] = '\0';
+                    strftime(response, sizeof(response), "%m/%d/%Y \n", timeinfo);
                     send(new_socket, response, strlen(response), 0);
-                    */
-                    strcat(date, "\n")
-                    send(new_socket, date, strlen(time), 0);
+
                 }
-                
+                */
                 else{
                     send(new_socket, INCORRECT, strlen(INCORRECT), 0);
                 }
-                free(request);
-                free(response);
-                fflush(NULL);
             }
         }
     }
-    close(socket_desc);
     return 0;
 }
