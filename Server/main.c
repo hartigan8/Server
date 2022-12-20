@@ -1,21 +1,26 @@
-#include<stdio.h>
-#include<string.h>    // for strlen
-#include<stdlib.h>
-#include<sys/socket.h>
-#include<arpa/inet.h> // for inet_addr
-#include<unistd.h>    // for write
- #include <time.h>
+#include <stdio.h>
+#include <string.h>    // for strlen
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <arpa/inet.h> // for inet_addr
+#include <unistd.h>    // for write
+#include <time.h>
 
 #define PORT_NUMBER 60000
 #define INCORRECT "INCORRECT REQUEST\n"
 #define CLOSE "CLOSE_SERVER"
 #define DAY "GET_DAY_OF_WEEK"
+#define TIME_ZONE "GET_TIME_ZONE"
+#define TIME_DATE "GET_TIME_DATE"
+#define DATE "GET_DATE"
+#define TIME "GET_TIME"
+#define BUFF_SIZE 2000
 
 int main(int argc, char *argv[])
 {
     int socket_desc , new_socket , c;
     struct sockaddr_in server , client;
-    char* request = calloc(1, 2000 * sizeof(char));
+    char* request;
     char* response;
      
     // Create socket
@@ -51,44 +56,100 @@ int main(int argc, char *argv[])
     {
         puts("Connected.");
         while (1)
-        {
-            int messageLength = recv(new_socket, request, 2000, 0);
-            if(messageLength < 0){
+        {   
+            request = calloc(1, BUFF_SIZE);
+            response = calloc(1, 50);
+            int requestLength = recv(new_socket, request, BUFF_SIZE, 0);
+            if(requestLength < 0){
                 return 1;
             }
-            else if (messageLength > 0)
+            else if (requestLength > 0)
             {   
-                request[messageLength - 2] = '\0';
+                
+                request[requestLength - 2] = '\0';
 
-                /*
-                if(messageLength == strlen(CLOSE) + 2 && strncmp(request, CLOSE, strlen(CLOSE)) == 0 ) {
-                    close(socket_desc);
-                    return 0;
-                }
-                else if(messageLength == strlen(DAY) + 2 && strncmp(request, DAY, strlen(DAY)) == 0 ) {
-                    response = "gün";
-                    send(new_socket, response, strlen(response), 0);
-                    close(socket_desc);
-                }
-                */
+                time_t rawtime;
+                struct tm* timeinfo;
+
+                time(&rawtime);
+                timeinfo = localtime(&rawtime);
+                char time[64];
+                char date[64];
+                strftime(time, 64, "%T", timeinfo);
+                strftime(date, 64, "%x", timeinfo);
+
                 if(strcmp(request, CLOSE) == 0){
+                    printf("Close signal received.");
+                    response = "GOOD BYE\n";
+                    send(new_socket, response, strlen(response), 0);
                     close(new_socket);
                     close(socket_desc);
+                    sleep(2);
                     return 0;
                 }
                 else if(strcmp(request, DAY) == 0){
-                    response = system("date");
+                    strftime(response, sizeof(response), "%A", timeinfo);
+                    response[strlen(response)] = '\n';
+                    response[strlen(response) + 1] = '\0';
                     send(new_socket, response, strlen(response), 0);
                 }
+                else if(strcmp(request, TIME_ZONE) == 0){
+                    strftime(response, sizeof(response), "%z", timeinfo);
+                    char* toFormat = calloc(1, 2);
+                    toFormat[0] = response[3];
+                    toFormat[1] = response[4];
+                    response[3] = ':';
+                    response[4] = toFormat[0];
+                    response[5] = toFormat[1];
+                    response[6] = '\n';
+                    response[7] = '\0';
+                    free(toFormat);
+                    send(new_socket, response, strlen(response), 0);
+                }
+                
+                else if(strcmp(request, TIME_DATE) == 0){
+                    /*
+                    strftime(response, sizeof(response), "%T%x", timeinfo);
+                    response[strlen(response)] = '\n';
+                    response[strlen(response) + 1] = '\0';
+                    send(new_socket, response, strlen(response), 0);
+                    */
+                    strcat(time, ", ");
+                    strcat(date, "\n");
+                    strcat(time, date);
+                    send(new_socket, time, strlen(time), 0);
+                }
+                
+                else if(strcmp(request, TIME)){
+                    /*
+                    strftime(response, sizeof(response), "%T", timeinfo);
+                    response[strlen(response)] = '\n';
+                    response[strlen(response) + 1] = '\0';
+                    send(new_socket, response, strlen(response), 0);
+                    */
+                    strcat(time, "\n");
+                    send(new_socket, time, strlen(time), 0);
+                }
+                
+                else if(strcmp(request, DATE)){
+                    /*
+                    strftime(response, sizeof(response), "%x", timeinfo);
+                    response[strlen(response)] = '\n';
+                    response[strlen(response) + 1] = '\0';
+                    send(new_socket, response, strlen(response), 0);
+                    */
+                    strcat(date, "\n")
+                    send(new_socket, date, strlen(time), 0);
+                }
+                
                 else{
-                    
                     send(new_socket, INCORRECT, strlen(INCORRECT), 0);
                 }
+                free(request);
+                free(response);
+                fflush(NULL);
             }
         }
-        
-        
-        
     }
     close(socket_desc);
     return 0;
