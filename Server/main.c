@@ -20,10 +20,11 @@ int main(int argc, char *argv[])
 {
     int socket_desc , new_socket , c;
     struct sockaddr_in server , client;
-    char* request;
-    char* response;
-    request = calloc(1, BUFF_SIZE);
-    response = calloc(1, 100);
+
+    // allocating memory to send and recieve message
+    char* request = calloc(1, BUFF_SIZE);
+    char* response = calloc(1, BUFF_SIZE);
+
     // Create socket
     socket_desc = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_desc == -1)
@@ -31,7 +32,7 @@ int main(int argc, char *argv[])
         puts("Could not create socket");
         return 1;
     }
-     
+ 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(PORT_NUMBER);
@@ -48,9 +49,7 @@ int main(int argc, char *argv[])
     listen(socket_desc, 3);
      
     // Accept and incoming connection
-    puts("Waiting for incoming connections...");
-    
-    
+    puts("Waiting for incoming connections...");    
     c = sizeof(struct sockaddr_in);
     while( new_socket =
            accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c) )
@@ -58,38 +57,46 @@ int main(int argc, char *argv[])
         puts("Connected.");
         while (1)
         {   
-            
+            // getting request
             int requestLength = recv(new_socket, request, BUFF_SIZE, 0);
+            
             if(requestLength < 0){
+                puts("recv failed");
                 return 1;
             }
             
+            // recv successful
             else if (requestLength > 0)
             {   
+                // getting current time
                 time_t rawtime;
                 struct tm* timeinfo;
-
-                
                 time(&rawtime);
                 timeinfo = localtime(&rawtime);
+
+                // every request ends with "\n " so I deleted last two chars to make comparison easier
                 request[requestLength - 2] = '\0';
-                
-                
+                // close signal
                 if(strcmp(request, CLOSE) == 0){
                     printf("Close signal received.");
                     response = "GOOD BYE\n";
                     send(new_socket, response, strlen(response), 0);
+                    // closing sockets
                     close(new_socket);
                     close(socket_desc);
-                    sleep(2);
                     return 0;
                 }
+                // get day of week
                 else if(strcmp(request, DAY) == 0){
-                    strftime(response, sizeof(response), "%A\n", timeinfo);
+                    strftime(response, BUFF_SIZE, "%A\n", timeinfo); // to format date
+                    printf("%s", response);
                     send(new_socket, response, strlen(response), 0);
                 }
+                // get time zone
                 else if(strcmp(request, TIME_ZONE) == 0){
-                    strftime(response, sizeof(response), "%z", timeinfo);
+                    // actually there is formatting with %:z in linux wich returns 00:00
+                    // but in strftime this operator doesn't work so there I formatted manually
+                    strftime(response, BUFF_SIZE, "%z", timeinfo);
                     char* toFormat = calloc(1, 2);
                     toFormat[0] = response[3];
                     toFormat[1] = response[4];
@@ -101,28 +108,25 @@ int main(int argc, char *argv[])
                     free(toFormat);
                     send(new_socket, response, strlen(response), 0);
                 }
-                
+                // get time date
                 else if(strcmp(request, TIME_DATE) == 0){
-                    
-                    strftime(response, sizeof(response), "%H:%M:%S, %m.%d.%Y\n", timeinfo);
-                    response[strlen(response)] = '\n';
-                    response[strlen(response) + 1] = '\0';
-                    send(new_socket, response, strlen(response), 0);
-                    
-                }
-                /*
-                else if(strcmp(request, TIME)){
-                    strftime(response, sizeof(response), "%H:%M:%S\n", timeinfo);
+                    strftime(response, BUFF_SIZE, "%H:%M:%S, %m.%d.%Y\n", timeinfo);
+                    printf("%s", response);
                     send(new_socket, response, strlen(response), 0);
                 }
-                
-                
-                else if(strcmp(request, DATE)){
-                    strftime(response, sizeof(response), "%m/%d/%Y \n", timeinfo);
+                // get time
+                else if(strcmp(request, TIME) == 0){
+                    strftime(response, BUFF_SIZE, "%H:%M:%S\n", timeinfo);
+                    printf("%s", response);
                     send(new_socket, response, strlen(response), 0);
-
                 }
-                */
+                // get date
+                else if(strcmp(request, DATE) == 0){
+                    strftime(response, BUFF_SIZE, "%m.%d.%Y\n", timeinfo);
+                    printf("%s", response);
+                    send(new_socket, response, strlen(response), 0);
+                }
+                // incorrect request
                 else{
                     send(new_socket, INCORRECT, strlen(INCORRECT), 0);
                 }
